@@ -14,6 +14,7 @@
     },
     "protection": {},
     "roi": {
+<<<<<<< HEAD
       "0": 0.247,
       "13": 0.063,
       "53": 0.013,
@@ -26,9 +27,27 @@
       "trailing_stop": true,
       "trailing_stop_positive": 0.223,
       "trailing_stop_positive_offset": 0.311,
+=======
+      "0": 0.128,
+      "39": 0.084,
+      "67": 0.014,
+      "175": 0
+    },
+    "stoploss": {
+      "stoploss": -0.219
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.169,
+      "trailing_stop_positive_offset": 0.198,
+>>>>>>> 53b0d9b (add backtest and deploy)
       "trailing_only_offset_is_reached": false
     }
   },
   "ft_stratparam_v": 1,
+<<<<<<< HEAD
   "export_time": "2025-08-05 16:35:38.389760+00:00"
+=======
+  "export_time": "2025-08-08 16:08:50.727182+00:00"
+>>>>>>> 53b0d9b (add backtest and deploy)
 }
