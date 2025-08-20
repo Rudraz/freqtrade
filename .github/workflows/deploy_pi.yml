@@ -1,0 +1,31 @@
+name: Deploy to Raspberry Pi
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user_data/**'
+      - 'docker-compose.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, ARM64, rpi, freqtrade]
+    defaults:
+      run:
+        working-directory: ~/freqtrade
+    steps:
+      - name: Sync repo
+        run: |
+          git fetch --all
+          git reset --hard origin/main
+
+      - name: (Optional) Render secrets into config.json
+        if: ${{ secrets.FT_CONFIG_JSON_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > user_data/config.json
+
+      - name: Start/Reload Freqtrade
+        run: |
+          docker compose pull || true
+          docker compose up -d
+          docker ps --filter "name=freqtrade"
