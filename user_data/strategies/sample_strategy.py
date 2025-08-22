@@ -424,3 +424,4 @@ class SampleStrategy(IStrategy):
         ] = 1
 
         return dataframe
+# backtest test Fri 22 Aug 10:25:18 UTC 2025
