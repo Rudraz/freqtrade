@@ -30,7 +30,7 @@ jobs:
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
             download-data -t 5m --timerange 20250101- --exchange binance \
-            --pairs BTC/USDT ETH/USDT
+            --pairs BTC/USDT,ETH/USDT
 
       - name: Run backtest
         run: |
