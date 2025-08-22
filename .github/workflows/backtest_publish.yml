@@ -1,26 +1,17 @@
 name: Backtest
 
 on:
-  pull_request:
-    paths:
-      - 'user_data/**'
-      - 'docker-compose.yml'
   push:
     branches: [ main ]
-    paths:
-      - 'user_data/**'
-      - 'docker-compose.yml'
+    paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
+  pull_request:
+    paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
 
 jobs:
   backtest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Prepare data dir
-        run: |
-          mkdir -p user_data/data/binance
-          # Add your own cached candles here if you keep them; otherwise freqtrade can dl via dl-data.
 
       - name: Pull Freqtrade image
         run: docker pull freqtradeorg/freqtrade:stable
@@ -29,11 +20,12 @@ jobs:
         run: |
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
-            download-data -t 5m --timerange 20250101- --exchange binance \
+            download-data --exchange binance -t 5m --timerange 20250110-20250120 \
             --pairs BTC/USDT,ETH/USDT
 
-      - name: Run backtest
+      - name: Run backtest (SampleStrategy)
         run: |
+          mkdir -p user_data/backtest_results
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
             backtesting --config /freqtrade/user_data/config.json \
@@ -41,11 +33,10 @@ jobs:
             --timeframe 5m \
             --timerange 20250110-20250120 \
             --export trades \
-            --export-filename /freqtrade/user_data/backtest_results/sample_bt.json
+            --export-filename /freqtrade/user_data/backtest_results/SampleStrategy_bt.json
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
         with:
-          name: backtest-results
-          path: user_data/backtest_results/
-          
+          name: backtest-SampleStrategy
+          path: user_data/backtest_results/SampleStrategy_bt.json
