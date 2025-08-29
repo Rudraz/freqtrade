@@ -1,0 +1,42 @@
+name: Backtest
+
+on:
+  push:
+    branches: [ main ]
+    paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
+  pull_request:
+    paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull Freqtrade image
+        run: docker pull freqtradeorg/freqtrade:stable
+
+      - name: Download sample data (quick)
+        run: |
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            download-data --exchange binance -t 5m --timerange 20250110-20250120 \
+            --pairs BTC/USDT,ETH/USDT
+
+      - name: Run backtest (SampleStrategy)
+        run: |
+          mkdir -p user_data/backtest_results
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            backtesting --config /freqtrade/user_data/config.json \
+            --strategy SampleStrategy \
+            --timeframe 5m \
+            --timerange 20250110-20250120 \
+            --export trades \
+            --export-filename /freqtrade/user_data/backtest_results/SampleStrategy_bt.json
+
+      - name: Upload backtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-SampleStrategy
+          path: user_data/backtest_results/SampleStrategy_bt.json
