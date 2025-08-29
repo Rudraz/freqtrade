@@ -7,3 +7,4 @@ user_data/data/
 user_data/*.sqlite
 **/.ipynb_checkpoints
 user_data/config.local.json
+user_data/config.json
