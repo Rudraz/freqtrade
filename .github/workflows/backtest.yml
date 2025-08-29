@@ -13,30 +13,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull Freqtrade image
+           - name: Pull Freqtrade image
         run: docker pull freqtradeorg/freqtrade:stable
 
-      - name: Download sample data (quick)
+      - name: Write backtest-only config (KuCoin)
+        run: |
+          mkdir -p user_data
+          cat > user_data/config.backtest.json <<'JSON'
+          {
+            "dry_run": true,
+            "exchange": {
+              "name": "kucoin",
+              "key": "DUMMY",
+              "secret": "DUMMY",
+              "ccxt_config": {"enableRateLimit": true},
+              "ccxt_async_config": {"enableRateLimit": true}
+            },
+            "pair_whitelist": ["BTC/USDT", "ETH/USDT"],
+            "timeframe": "5m",
+            "stake_currency": "USDT",
+            "stake_amount": "unlimited",
+            "max_open_trades": 2,
+            "api_server": {"enabled": false}
+          }
+          JSON
+
+      - name: Download sample data (KuCoin)
         run: |
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
-            download-data --exchange binance -t 5m --timerange 20250110-20250120 \
+            download-data --config /freqtrade/user_data/config.backtest.json \
+            -t 5m --timerange 20250110-20250120 \
             --pairs BTC/USDT,ETH/USDT
 
-      - name: Run backtest (SampleStrategy)
+      - name: Run backtest (${{ matrix.strategy }})
         run: |
           mkdir -p user_data/backtest_results
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
-            backtesting --config /freqtrade/user_data/config.json \
-            --strategy SampleStrategy \
+            backtesting --config /freqtrade/user_data/config.backtest.json \
+            --strategy ${{ matrix.strategy }} \
             --timeframe 5m \
             --timerange 20250110-20250120 \
             --export trades \
-            --export-filename /freqtrade/user_data/backtest_results/SampleStrategy_bt.json
-
-      - name: Upload backtest results
-        uses: actions/upload-artifact@v4
-        with:
-          name: backtest-SampleStrategy
-          path: user_data/backtest_results/SampleStrategy_bt.json
+            --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
