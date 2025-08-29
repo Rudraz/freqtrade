@@ -6,102 +6,80 @@ on:
     paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
   pull_request:
     paths: ['user_data/**','docker-compose.yml','.github/workflows/backtest.yml']
+  workflow_dispatch: {}
 
 jobs:
   backtest:
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        strategy: [SampleStrategy, RSIMeanReversion]  # adjust as you add strategies
+      matrix: { strategy: [SampleStrategy, RSIMeanReversion] }
     steps:
       - uses: actions/checkout@v4
 
       - name: Pull Freqtrade image
         run: docker pull freqtradeorg/freqtrade:stable
 
-      # We’ll create config.backtest.json and also overwrite config.json so
-      # accidental calls use the CI-safe exchange too.
-      - name: Create CI config (start with KuCoin)
+      - name: Create CI config (KuCoin) and also copy to config.json
         run: |
           mkdir -p user_data
           cat > user_data/config.backtest.json <<'JSON'
           {
             "dry_run": true,
-            "exchange": {
-              "name": "kucoin",
-              "key": "DUMMY",
-              "secret": "DUMMY",
+            "exchange": { "name": "kucoin", "key": "DUMMY", "secret": "DUMMY",
               "ccxt_config": {"enableRateLimit": true},
-              "ccxt_async_config": {"enableRateLimit": true}
-            },
+              "ccxt_async_config": {"enableRateLimit": true} },
             "pair_whitelist": ["BTC/USDT", "ETH/USDT"],
             "timeframe": "5m",
             "stake_currency": "USDT",
             "stake_amount": "unlimited",
             "max_open_trades": 2,
-            "api_server": {"enabled": false}
+            "api_server": { "enabled": false }
           }
           JSON
           cp user_data/config.backtest.json user_data/config.json
 
-      - name: Select exchange & download data with fallback (KuCoin -> Kraken)
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
+      # GUARD 1 — fail immediately if config.json is not KuCoin
+      - name: Guard: config.json must be KuCoin
         run: |
-          set -u
-          CFG="/freqtrade/user_data/config.backtest.json"
-          MOUNT="${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data"
-          LOG_DL="dl.log"
+          echo "==> Checking exchange field in user_data/config.json"
+          grep -qi '"name": *"kucoin"' user_data/config.json || (echo "Config is not KuCoin!"; cat user_data/config.json; exit 1)
 
-          echo "==> Attempt 1: KuCoin with BTC/USDT,ETH/USDT"
-          set +e
-          docker run --rm -v "$MOUNT" freqtradeorg/freqtrade:stable \
-            download-data --config "$CFG" -t 5m --timerange 20250110-20250120 \
-            > "$LOG_DL" 2>&1
-          STATUS=$?
+      - name: Download sample data (KuCoin; fallback to Kraken)
+        run: |
           set -e
+          MOUNT="${{ github.workspace }}/user_data:/freqtrade/user_data"
+          CFG="/freqtrade/user_data/config.backtest.json"
 
-          if [ $STATUS -ne 0 ] || grep -E "ExchangeNotAvailable|451|restricted location|error" -i "$LOG_DL" >/dev/null 2>&1; then
-            echo "==> KuCoin download failed or blocked. Switching to Kraken with USD pairs."
-
-            # Rewrite CI config to Kraken + USD pairs
-            cat > "${GITHUB_WORKSPACE}/user_data/config.backtest.json" <<'JSON'
+          echo "==> Try KuCoin"
+          if ! docker run --rm -v "$MOUNT" freqtradeorg/freqtrade:stable \
+               download-data --config "$CFG" -t 5m --timerange 20250110-20250120 ; then
+            echo "==> KuCoin failed; switching to Kraken (USD pairs)"
+            cat > ${{ github.workspace }}/user_data/config.backtest.json <<'JSON'
             {
               "dry_run": true,
-              "exchange": {
-                "name": "kraken",
-                "key": "DUMMY",
-                "secret": "DUMMY",
+              "exchange": { "name": "kraken", "key": "DUMMY", "secret": "DUMMY",
                 "ccxt_config": {"enableRateLimit": true},
-                "ccxt_async_config": {"enableRateLimit": true}
-              },
+                "ccxt_async_config": {"enableRateLimit": true} },
               "pair_whitelist": ["BTC/USD", "ETH/USD"],
               "timeframe": "5m",
               "stake_currency": "USD",
               "stake_amount": "unlimited",
               "max_open_trades": 2,
-              "api_server": {"enabled": false}
+              "api_server": { "enabled": false }
             }
             JSON
-            cp "${GITHUB_WORKSPACE}/user_data/config.backtest.json" "${GITHUB_WORKSPACE}/user_data/config.json"
-
-            echo "==> Attempt 2: Kraken with BTC/USD,ETH/USD"
+            cp ${{ github.workspace }}/user_data/config.backtest.json ${{ github.workspace }}/user_data/config.json
             docker run --rm -v "$MOUNT" freqtradeorg/freqtrade:stable \
-              download-data --config "$CFG" -t 5m --timerange 20250110-20250120 \
-              | sed -e '1,120p'
-          else
-            echo "==> KuCoin download succeeded."
-            sed -e '1,120p' "$LOG_DL" || true
+               download-data --config "$CFG" -t 5m --timerange 20250110-20250120
           fi
 
+      # GUARD 2 — show exactly what config files contain
       - name: Show files (guard)
         run: |
-          echo "Workspace: ${{ github.workspace }}"
-          ls -la
-          echo "--- user_data ---"
-          ls -la user_data
-          echo "--- Dump config.backtest.json (first 120 lines) ---"
+          echo "--- config.backtest.json ---"
           sed -n '1,120p' user_data/config.backtest.json
+          echo "--- config.json ---"
+          sed -n '1,120p' user_data/config.json
 
       - name: Run backtest (${{ matrix.strategy }})
         run: |
