@@ -12,4 +12,47 @@ on:
       - 'user_data/**'
       - 'docker-compose.yml'
       - '.github/workflows/backtest.yml'
-  workflow_dispatch: {}   # 👈 enables manual runs
+  workflow_dispatch: {}
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        strategy: [ SampleStrategy, RSIMeanReversion ]  # adjust to your strategies
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull Freqtrade image
+        run: docker pull freqtradeorg/freqtrade:stable
+
+      - name: Write minimal Kraken config (single line)
+        run: |
+          mkdir -p user_data
+          printf '%s' '{"dry_run":true,"exchange":{"name":"kraken","key":"DUMMY","secret":"DUMMY","ccxt_config":{"enableRateLimit":true},"ccxt_async_config":{"enableRateLimit":true}},"pair_whitelist":["BTC/USD","ETH/USD"],"timeframe":"5m","stake_currency":"USD","stake_amount":"unlimited","max_open_trades":2,"api_server":{"enabled":false}}' > user_data/config.json
+
+      - name: Download sample data (Kraken)
+        run: |
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            download-data --config /freqtrade/user_data/config.json \
+            -t 5m --timerange 20250110-20250120
+
+      - name: Run backtest (${{ matrix.strategy }})
+        run: |
+          mkdir -p user_data/backtest_results
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            backtesting --config /freqtrade/user_data/config.json \
+            --strategy ${{ matrix.strategy }} \
+            --timeframe 5m \
+            --timerange 20250110-20250120 \
+            --export trades \
+            --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
+
+      - name: Upload artifact (${{ matrix.strategy }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ matrix.strategy }}
+          path: user_data/backtest_results/${{ matrix.strategy }}_bt.json
