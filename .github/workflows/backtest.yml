@@ -12,4 +12,4 @@ on:
       - 'user_data/**'
       - 'docker-compose.yml'
       - '.github/workflows/backtest.yml'
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # 👈 enables manual runs

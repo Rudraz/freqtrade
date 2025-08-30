@@ -1,77 +1,10 @@
 name: Deploy to Raspberry Pi
+
 on:
   push:
     branches: [ main ]
-    paths: ['user_data/**','docker-compose.yml']
-
-jobs:
-  deploy:
-    runs-on: [self-hosted, linux, ARM64, rpi, freqtrade]
-    defaults:
-      run:
-        working-directory: ~/freqtrade
-    steps:
-      - name: Sync repo to latest main
-        run: |
-          git fetch --all
-          git reset --hard origin/main
-
-      - name: Render config.json (prefer FT_CONFIG_JSON_BASE64; else use discrete secrets)
-        env:
-          FT_CONFIG_JSON_BASE64: ${{ secrets.FT_CONFIG_JSON_BASE64 }}
-          EXCHANGE_NAME: ${{ secrets.EXCHANGE_NAME }}
-          EXCHANGE_KEY: ${{ secrets.EXCHANGE_KEY }}
-          EXCHANGE_SECRET: ${{ secrets.EXCHANGE_SECRET }}
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          mkdir -p user_data
-
-          if [ -n "${FT_CONFIG_JSON_BASE64}" ]; then
-            echo "Using FT_CONFIG_JSON_BASE64 to write user_data/config.json"
-            echo "${FT_CONFIG_JSON_BASE64}" | base64 -d > user_data/config.json
-          else
-            echo "FT_CONFIG_JSON_BASE64 not set; rendering from discrete secrets"
-            cat > user_data/config.json <<'JSON'
-            {
-              "dry_run": true,
-              "exchange": {
-                "name": "__EXCHANGE_NAME__",
-                "key": "__EXCHANGE_KEY__",
-                "secret": "__EXCHANGE_SECRET__",
-                "ccxt_config": {"enableRateLimit": true},
-                "ccxt_async_config": {"enableRateLimit": true}
-              },
-              "pair_whitelist": ["BTC/USDT", "ETH/USDT"],
-              "timeframe": "5m",
-              "stake_currency": "USDT",
-              "stake_amount": "unlimited",
-              "strategy": "SampleStrategy",
-              "max_open_trades": 2,
-              "telegram": {
-                "enabled": true,
-                "token": "__TELEGRAM_TOKEN__",
-                "chat_id": "__TELEGRAM_CHAT_ID__"
-              },
-              "api_server": {
-                "enabled": true,
-                "listen_ip_address": "0.0.0.0",
-                "listen_port": 8080
-              }
-            }
-            JSON
-            sed -i "s|__EXCHANGE_NAME__|${EXCHANGE_NAME}|g" user_data/config.json
-            sed -i "s|__EXCHANGE_KEY__|${EXCHANGE_KEY}|g" user_data/config.json
-            sed -i "s|__EXCHANGE_SECRET__|${EXCHANGE_SECRET}|g" user_data/config.json
-            sed -i "s|__TELEGRAM_TOKEN__|${TELEGRAM_TOKEN}|g" user_data/config.json
-            sed -i "s|__TELEGRAM_CHAT_ID__|${TELEGRAM_CHAT_ID}|g" user_data/config.json
-          fi
-
-          echo "---- config.json preview (keys masked) ----"
-          sed -E 's/("key":\s*").*(")/\1***\2/; s/("secret":\s*").*(")/\1***\2/; s/("token":\s*").*(")/\1***\2/' user_data/config.json | head -n 60
-
-      - name: Start/Reload Freqtrade
-        run: |
-          docker compose pull || true
-          docker compose up -d
-          docker ps --filter "name=freqtrade"
+    paths:
+      - 'user_data/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}   # 👈 enables manual runs
