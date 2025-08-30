@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        strategy: [ SampleStrategy, RSIMeanReversion ]  # adjust to your strategies
+        strategy: [ SampleStrategy ]  # adjust to your strategies
     steps:
       - name: Checkout
         uses: actions/checkout@v4
