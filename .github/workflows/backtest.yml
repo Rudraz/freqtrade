@@ -30,7 +30,7 @@ jobs:
       - name: Write minimal Kraken config (single line)
         run: |
           mkdir -p user_data
-          printf '%s' '{"dry_run":true,"exchange":{"name":"kraken","key":"DUMMY","secret":"DUMMY","ccxt_config":{"enableRateLimit":true},"ccxt_async_config":{"enableRateLimit":true}},"pair_whitelist":["BTC/USD","ETH/USD"],"timeframe":"5m","stake_currency":"USD","stake_amount":"unlimited","max_open_trades":2,"api_server":{"enabled":false}}' > user_data/config.json
+          printf '%s' '{"dry_run":true,"exchange":{"name":"kraken","key":"DUMMY","secret":"DUMMY","ccxt_config":{"enableRateLimit":true},"ccxt_async_config":{"enableRateLimit":true}},"pair_whitelist":["BTC/USD","ETH/USD"],"timeframe":"5m","stake_currency":"USD","stake_amount":"unlimited","max_open_trades":2}' > user_data/config.json
 
       - name: Download sample data (Kraken)
         run: |
