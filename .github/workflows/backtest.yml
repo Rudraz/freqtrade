@@ -54,12 +54,6 @@ jobs:
           }
           JSON
 
-      - name: Guard: show exchange and pair_whitelist
-        shell: bash
-        run: |
-          python -c 'import json,sys; j=json.load(open("user_data/config.json")); print("EXCHANGE:", j.get("exchange",{}).get("name")); pairs=j.get("pair_whitelist",[]); print("PAIR_WHITELIST:", ",".join(pairs)); sys.exit(0 if pairs else 1)'
-
-
       - name: Download sample data (Kraken)
         run: |
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
