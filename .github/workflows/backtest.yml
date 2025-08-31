@@ -43,8 +43,11 @@ jobs:
               "ccxt_config": { "enableRateLimit": true },
               "ccxt_async_config": { "enableRateLimit": true }
             },
-            "pair_whitelist": ["BTC/USD", "ETH/USD"],
-            "pairlists": [ { "method": "StaticPairList" } ],
+            "pairlists": [
+              { "method": "StaticPairList",
+                "pairs": ["BTC/USD", "ETH/USD"]   // Use "XBT/USD" if Kraken complains
+              }
+            ],
             "timeframe": "5m",
             "stake_currency": "USD",
             "stake_amount": "unlimited",
@@ -53,6 +56,10 @@ jobs:
             "exit_pricing":   { "price_side": "same", "use_order_book": false, "order_book_top": 1 }
           }
           JSON
+
+      - name: Show config (first 120 lines)
+        run: |
+          sed -n '1,120p' user_data/config.json
 
       - name: Download sample data (Kraken)
         run: |
