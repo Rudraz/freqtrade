@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        strategy: [ SampleStrategy ]  # adjust to your strategies
+        strategy: [ SampleStrategy, RSIMeanReversion ]  # adjust to your strategies
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,25 +27,48 @@ jobs:
       - name: Pull Freqtrade image
         run: docker pull freqtradeorg/freqtrade:stable
 
-      - name: Write minimal Kraken config (single line)
+      - name: Write minimal Kraken config
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p user_data
-          printf '%s' '{"dry_run":true,"trading_mode":"spot","exchange":{"name":"kraken","key":"DUMMY","secret":"DUMMY","ccxt_config":{"enableRateLimit":true},"ccxt_async_config":{"enableRateLimit":true}},"pair_whitelist":["BTC/USD","ETH/USD"],"pairlists":[{"method":"StaticPairList"}],"timeframe":"5m","stake_currency":"USD","stake_amount":"unlimited","max_open_trades":2,"entry_pricing":{"price_side":"same","use_order_book":false,"order_book_top":1},"exit_pricing":{"price_side":"same","use_order_book":false,"order_book_top":1}}' > user_data/config.json
-      
+          cat > user_data/config.json <<'JSON'
+          {
+            "dry_run": true,
+            "trading_mode": "spot",
+            "exchange": {
+              "name": "kraken",
+              "key": "DUMMY",
+              "secret": "DUMMY",
+              "ccxt_config": { "enableRateLimit": true },
+              "ccxt_async_config": { "enableRateLimit": true }
+            },
+            "pair_whitelist": ["BTC/USD", "ETH/USD"],
+            "pairlists": [ { "method": "StaticPairList" } ],
+            "timeframe": "5m",
+            "stake_currency": "USD",
+            "stake_amount": "unlimited",
+            "max_open_trades": 2,
+            "entry_pricing":  { "price_side": "same", "use_order_book": false, "order_book_top": 1 },
+            "exit_pricing":   { "price_side": "same", "use_order_book": false, "order_book_top": 1 }
+          }
+          JSON
+
       - name: Guard: show exchange and pair_whitelist
         shell: bash
         run: |
           set -euo pipefail
-          if ! command -v jq >/dev/null 2>&1; then
-            sudo apt-get update -y
-            sudo apt-get install -y jq
-          fi
-          echo "Exchange:"
-          jq -r '.exchange.name' user_data/config.json
-          echo "Pair whitelist:"
-          jq -r '.pair_whitelist | join(",")' user_data/config.json
-          # Fail if pair_whitelist is empty
-          test "$(jq '.pair_whitelist | length' user_data/config.json)" -gt 0
+          python - <<'PY'
+          import json, sys
+          with open("user_data/config.json") as f:
+              j = json.load(f)
+          print("EXCHANGE:", j.get("exchange", {}).get("name"))
+          pairs = j.get("pair_whitelist", [])
+          print("PAIR_WHITELIST:", ",".join(pairs))
+          if not pairs:
+              print("pair_whitelist empty!", file=sys.stderr)
+              sys.exit(1)
+          PY
 
       - name: Download sample data (Kraken)
         run: |
