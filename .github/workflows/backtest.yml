@@ -41,11 +41,12 @@ jobs:
               "key": "DUMMY",
               "secret": "DUMMY",
               "ccxt_config": { "enableRateLimit": true },
-              "ccxt_async_config": { "enableRateLimit": true }
+              "ccxt_async_config": { "enableRateLimit": true },
+              "pair_whitelist": ["BTC/USD", "ETH/USD"]
             },
 
             "pairlists": [
-              { "method": "StaticPairList", "number_assets": 5, "sort_key": "quoteVolume", "min_value": 0, "refresh_period": 1800 }
+              { "method": "StaticPairList"}
             ],
 
             "timeframe": "5m",
