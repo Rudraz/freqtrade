@@ -3,5 +3,137 @@ name: Publish Backtests to Pages
 on:
   workflow_run:
     workflows: [ "Backtest" ]
-    types: [ completed ]
-  workflow_dispatch: {}   # 👈 enables manual runs
+    types: [ "completed" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (for site skeleton)
+        uses: actions/checkout@v4
+
+      - name: Create site directories
+        run: |
+          rm -rf site
+          mkdir -p site/data
+
+      # When triggered by Backtest finishing, pull artifacts from THAT run using run-id.
+      # When manually triggered, this step will simply try (and do nothing if none exist).
+      - name: Download backtest artifacts from Backtest run
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@v4
+        with:
+          # download *all* artifacts produced by the Backtest workflow
+          run-id: ${{ github.event.workflow_run.id }}
+          path: site/data
+          merge-multiple: true
+
+      # Optional manual path: if you manually run this workflow in isolation,
+      # you can also place JSON files in user_data/backtest_results and we’ll grab them.
+      - name: Copy local results if present (manual runs)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          if [ -d user_data/backtest_results ]; then
+            cp -v user_data/backtest_results/*.json site/data/ || true
+          fi
+
+      - name: Generate index.html
+        run: |
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width,initial-scale=1" />
+            <title>Freqtrade Backtests</title>
+            <style>
+              body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; line-height: 1.4; }
+              h1 { margin-bottom: 0.25rem; }
+              .file { margin: 0.25rem 0; }
+              pre { white-space: pre-wrap; word-break: break-word; background: #f6f8fa; padding: 1rem; border-radius: 8px; }
+              .hint{ color:#555; }
+              a { text-decoration: none; }
+            </style>
+          </head>
+          <body>
+            <h1>Freqtrade Backtests</h1>
+            <div class="hint">Branch: <strong>${BRANCH}</strong> • Date: <strong>${DATE}</strong></div>
+            <hr/>
+            <div id="list"></div>
+            <hr/>
+            <pre id="viewer">Click a file above to view JSON here.</pre>
+
+            <script>
+              const listDiv = document.getElementById('list');
+              const viewer = document.getElementById('viewer');
+
+              async function listFiles() {
+                // There’s no directory listing, so embed via a generated manifest (below).
+                const resp = await fetch('manifest.json');
+                if (!resp.ok) {
+                  listDiv.innerHTML = '<p class="hint">No artifacts found.</p>';
+                  return;
+                }
+                const files = await resp.json();
+                if (!files.length) {
+                  listDiv.innerHTML = '<p class="hint">No artifacts found.</p>';
+                  return;
+                }
+                files.forEach(f => {
+                  const link = document.createElement('a');
+                  link.href = 'data/' + f;
+                  link.className = 'file';
+                  link.textContent = f;
+                  link.onclick = async (e) => {
+                    e.preventDefault();
+                    const r = await fetch(link.href);
+                    const t = await r.text();
+                    viewer.textContent = t;
+                  };
+                  const p = document.createElement('p');
+                  p.appendChild(link);
+                  listDiv.appendChild(p);
+                });
+              }
+              listFiles();
+            </script>
+          </body>
+          </html>
+          HTML
+          # Fill simple context into page
+          sed -i "s|\${BRANCH}|${GITHUB_REF_NAME:-unknown}|g" site/index.html
+          sed -i "s|\${DATE}|$(date -u '+%Y-%m-%d %H:%M UTC')|g" site/index.html
+
+      - name: Create manifest.json
+        run: |
+          ls -1 site/data/*.json 2>/dev/null | sed 's|site/data/||' | jq -R -s 'split("\n") | map(select(length>0))' > site/manifest.json || echo '[]' > site/manifest.json
+          echo "Built manifest:"
+          cat site/manifest.json
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
