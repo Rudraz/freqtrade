@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        strategy: [ SampleStrategy, RSIMeanReversion ]  # adjust to your strategies
+        strategy: [ SampleStrategy ]  # adjust to your strategies
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,12 +37,12 @@ jobs:
             "dry_run": true,
             "trading_mode": "spot",
             "exchange": {
-              "name": "kraken",
+              "name": "binance",
               "key": "DUMMY",
               "secret": "DUMMY",
               "ccxt_config": { "enableRateLimit": true },
               "ccxt_async_config": { "enableRateLimit": true },
-              "pair_whitelist": ["BTC/USD", "ETH/USD"]
+              "pair_whitelist": ["BTC/USDT", "ETH/USDT"]
             },
 
             "pairlists": [
@@ -66,14 +66,7 @@ jobs:
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
             download-data --config /freqtrade/user_data/config.json \
-            --dl-trades --timerange 20250110-20250120
-
-      - name: Convert trades -> OHLCV (5m)
-        run: |
-          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
-            freqtradeorg/freqtrade:stable \
-            convert-data --config /freqtrade/user_data/config.json \
-            --trades-to-ohlcv --timeframes 5m --timerange 20250110-20250120
+            --dl-trades -t 5m --timerange 20250110-20250120
 
       - name: Run backtest (${{ matrix.strategy }})
         run: |
