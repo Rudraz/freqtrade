@@ -1,0 +1,87 @@
+name: Backtest
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user_data/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/backtest.yml'
+  pull_request:
+    paths:
+      - 'user_data/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/backtest.yml'
+  workflow_dispatch: {}
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        strategy: [ SampleStrategy ]  # adjust to your strategies
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull Freqtrade image
+        run: docker pull freqtradeorg/freqtrade:stable
+
+      - name: Write minimal Kraken config
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p user_data
+          cat > user_data/config.json <<'JSON'
+          {
+            "dry_run": true,
+            "trading_mode": "spot",
+            "exchange": {
+              "name": "binance",
+              "key": "DUMMY",
+              "secret": "DUMMY",
+              "ccxt_config": { "enableRateLimit": true },
+              "ccxt_async_config": { "enableRateLimit": true },
+              "pair_whitelist": ["BTC/USDT", "ETH/USDT"]
+            },
+
+            "pairlists": [
+              { "method": "StaticPairList"}
+            ],
+
+            "timeframe": "5m",
+            "stake_currency": "USD",
+            "stake_amount": "unlimited",
+            "max_open_trades": 2,
+            "entry_pricing":  { "price_side": "same", "use_order_book": false, "order_book_top": 1 },
+            "exit_pricing":   { "price_side": "same", "use_order_book": false, "order_book_top": 1 }
+          }
+          JSON
+      - name: Show config (first 120 lines)
+        run: |
+          sed -n '1,120p' user_data/config.json
+          
+      - name: Download trades (Kraken)
+        run: |
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            download-data --config /freqtrade/user_data/config.json \
+            --dl-trades -t 5m --timerange 20250110-20250120
+
+      - name: Run backtest (${{ matrix.strategy }})
+        run: |
+          mkdir -p user_data/backtest_results
+          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+            freqtradeorg/freqtrade:stable \
+            backtesting --config /freqtrade/user_data/config.json \
+            --strategy ${{ matrix.strategy }} \
+            --timeframe 5m \
+            --timerange 20250110-20250120 \
+            --export trades \
+            --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
+
+      - name: Upload artifact (${{ matrix.strategy }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ matrix.strategy }}
+          path: user_data/backtest_results/${{ matrix.strategy }}_bt.json
