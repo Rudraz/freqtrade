@@ -44,9 +44,7 @@ jobs:
               "ccxt_async_config": { "enableRateLimit": true }
             },
             "pairlists": [
-              { "method": "StaticPairList",
-                "pairs": ["BTC/USD", "ETH/USD"]   // Use "XBT/USD" if Kraken complains
-              }
+              { "method": "StaticPairList"              }
             ],
             "timeframe": "5m",
             "stake_currency": "USD",
