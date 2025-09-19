@@ -12,6 +12,7 @@ on:
       - 'user_data/**'
       - 'docker-compose.yml'
       - '.github/workflows/backtest.yml'
+
   workflow_dispatch: {}
 
 jobs:
@@ -43,7 +44,7 @@ jobs:
               "secret": "DUMMY",
               "ccxt_config": { "enableRateLimit": true },
               "ccxt_async_config": { "enableRateLimit": true },
-              "pair_whitelist": ["BTC/USD"]
+              "pair_whitelist": ["BTC/USD", "XRP/USD"]
             },
 
             "pairlists": [
