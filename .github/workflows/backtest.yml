@@ -44,14 +44,14 @@ jobs:
               "secret": "DUMMY",
               "ccxt_config": { "enableRateLimit": true },
               "ccxt_async_config": { "enableRateLimit": true },
-              "pair_whitelist": ["BTC/USD", "XRP/USD"]
+              "pair_whitelist": ["BTC/USD"]
             },
 
             "pairlists": [
               { "method": "StaticPairList"}
             ],
 
-            "timeframe": "5m",
+            "timeframe": "1h",
             "stake_currency": "USD",
             "stake_amount": "unlimited",
             "max_open_trades": 2,
@@ -68,7 +68,7 @@ jobs:
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
             download-data --config /freqtrade/user_data/config.json \
-            --dl-trades -t 5m --timerange 20250110-20250120
+            --dl-trades -t 1h --timerange 20250110-20250120
 
       - name: Run backtest (${{ matrix.strategy }})
         run: |
@@ -77,7 +77,7 @@ jobs:
             freqtradeorg/freqtrade:stable \
             backtesting --config /freqtrade/user_data/config.json \
             --strategy ${{ matrix.strategy }} \
-            --timeframe 5m \
+            --timeframe 1h \
             --timerange 20250110-20250120 \
             --export trades \
             --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
