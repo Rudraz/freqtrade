@@ -77,7 +77,7 @@ jobs:
             freqtradeorg/freqtrade:stable \
             backtesting --config /freqtrade/user_data/config.json \
             --strategy ${{ matrix.strategy }} \
-            --timeframe 1h \
+            --timeframe 5m \
             --timerange 20250110-20250120 \
             --export trades \
             --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
