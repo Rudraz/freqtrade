@@ -68,7 +68,7 @@ jobs:
           docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
             freqtradeorg/freqtrade:stable \
             download-data --config /freqtrade/user_data/config.json \
-            --dl-trades -t 1h --timerange 20250110-20250120
+            --dl-trades -t 5m --timerange 20250110-20250120
 
       - name: Run backtest (${{ matrix.strategy }})
         run: |
