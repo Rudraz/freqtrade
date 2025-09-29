@@ -17,8 +17,8 @@ on:
 
 jobs:
   backtest:
-    runs-on: ubuntu-latest
-    #runs-on: self-hosted     
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted     
     strategy:
       matrix:
         strategy: [ SampleStrategy ]  # adjust to your strategies
@@ -87,3 +87,8 @@ jobs:
         with:
           name: backtest-${{ matrix.strategy }}
           path: user_data/backtest_results/${{ matrix.strategy }}_bt.json
+
+      - name: List results after backtest
+        run: |
+          echo "==> Contents of backtest_results"
+          ls -la user_data/backtest_results
