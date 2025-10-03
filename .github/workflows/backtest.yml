@@ -17,8 +17,11 @@ on:
 
 jobs:
   backtest:
+    #runs-on: ubuntu-latest
     runs-on: ubuntu-latest
-    #runs-on: self-hosted     
+
+    runs-on: self-hosted     
+    #toggle 
     strategy:
       matrix:
         strategy: [ SampleStrategy ]  # adjust to your strategies
