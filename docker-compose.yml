@@ -1,4 +1,4 @@
----
+# test-edit
 services:
   freqtrade:
     image: freqtradeorg/freqtrade:stable
