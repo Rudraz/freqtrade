@@ -28,14 +28,14 @@
 
   "runmode": "live",
   "dry_run_db": true,
-  
+
   "entry_pricing": {
     "price_side": "ask",
     "use_order_book": false
   },
+
   "exit_pricing": {
     "price_side": "bid",
     "use_order_book": false
   }
-
 }
