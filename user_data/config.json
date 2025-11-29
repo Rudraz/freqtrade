@@ -4,6 +4,8 @@
   "timeframe": "5m",
   "stake_currency": "USDT",
   "stake_amount": "unlimited",
+  "max_open_trades": 1,
+
 
   "exchange": {
     "name": "binance",
