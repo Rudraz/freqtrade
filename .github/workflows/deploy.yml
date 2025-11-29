@@ -1,10 +1,12 @@
-name: Deploy to Raspberry Pi
+name: Placeholder Deploy Workflow
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'user_data/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/deploy.yml'
-  workflow_dispatch: {}   # 👈 enables manual runs
+  workflow_dispatch:
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do nothing
+        run: echo "Placeholder workflow. Safe and valid."
+
