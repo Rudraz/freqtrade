@@ -42,4 +42,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: forwardtest-meanreversion
-          path: user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
+          path: user_data/backtest_results/**
+
