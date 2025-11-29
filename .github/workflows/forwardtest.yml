@@ -1,0 +1,46 @@
+name: Forward Test MeanReversionMomentum
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"   # runs daily at 01:00 UTC
+
+jobs:
+  forwardtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Pull Freqtrade Docker Image
+        run: docker pull freqtradeorg/freqtrade:stable
+
+      - name: Download Latest Market Data (KuCoin)
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            freqtradeorg/freqtrade:stable \
+            download-data \
+              --exchange kucoin \
+              --timeframe 5m \
+              --days 2
+
+      - name: Run Forward Test (Last 24h)
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            freqtradeorg/freqtrade:stable \
+            backtesting \
+              --config user_data/config_backtest_ci.json \
+              --strategy MeanReversionMomentum \
+              --timeframe 5m \
+              --timerange -24h \
+              --export trades \
+              --export-filename user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
+
+      - name: Upload forwardtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: forwardtest-meanreversion
+          path: user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
