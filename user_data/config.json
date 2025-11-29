@@ -6,16 +6,17 @@
   "stake_amount": "unlimited",
   "max_open_trades": 1,
   
-  "exchange": {
-    "name": "binance",
-    "key": "YOUR_API_KEY",
-    "secret": "YOUR_API_SECRET",
-    "ccxt_config": {},
-    "ccxt_async_config": {},
-    "pair_whitelist": [
-        "BTC/USDT",
-        "ETH/USDT"
-    ],
+    "exchange": {
+              "name": "kraken",
+              "key": "YOUR_API_KEY",
+              "secret": "YOUR_API_SECRET",
+              "ccxt_config": {"enableRateLimit": true},
+              "ccxt_async_config": {"enableRateLimit": true},
+              "pair_whitelist": [
+               "BTC/USDT",
+               "ETH/USDT"
+                ],
+            },
     
     "pair_blacklist": []
     },
