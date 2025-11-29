@@ -23,17 +23,18 @@ jobs:
             freqtradeorg/freqtrade:stable \
             bash -c "
               cd /freqtrade && \
-              freqtrade download-data \
+              /usr/local/bin/freqtrade download-data \
                 --exchange binance \
                 --timeframe 5m \
                 --days 60 && \
-              freqtrade backtesting \
+              /usr/local/bin/freqtrade backtesting \
                 --config user_data/config.json \
                 --strategy MeanReversionMomentum \
                 --timeframe 5m \
                 --export trades \
                 --export-filename user_data/backtest_results/MeanReversionMomentum.json
             "
+
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
