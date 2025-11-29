@@ -25,7 +25,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
-              --exchange binance \
+              --exchange kucoin \
               --timeframe 5m \
               --days 60
 
@@ -35,11 +35,13 @@ jobs:
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             backtesting \
-              --config user_data/config.json \
+              --config user_data/config_backtest_ci.json \
               --strategy MeanReversionMomentum \
+              --timeframe 5m \
               --timeframe 5m \
               --export trades \
               --export-filename user_data/backtest_results/MeanReversionMomentum.json
+
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
