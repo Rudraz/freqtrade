@@ -35,7 +35,7 @@ jobs:
               --config user_data/config.json \
               --strategy MeanReversionMomentum \
               --timeframe 5m \
-              --timerange=-24h \
+              --timerange=-1440 \
               --export trades \
               --export-filename user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
 
