@@ -29,6 +29,7 @@ jobs:
               --timeframe 5m \
               --days 60
 
+
       - name: Run Backtest
         run: |
           docker run --rm \
@@ -37,7 +38,6 @@ jobs:
             backtesting \
               --config user_data/config.json \
               --strategy MeanReversionMomentum \
-              --timeframe 5m \
               --timeframe 5m \
               --export trades \
               --export-filename user_data/backtest_results/MeanReversionMomentum.json
