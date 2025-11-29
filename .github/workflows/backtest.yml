@@ -20,9 +20,9 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/freqtrade \
+            -w /freqtrade \
             freqtradeorg/freqtrade:stable \
-            bash -c "
-              cd /freqtrade && \
+            /bin/bash -c "
               /usr/local/bin/freqtrade download-data \
                 --exchange binance \
                 --timeframe 5m \
@@ -34,7 +34,6 @@ jobs:
                 --export trades \
                 --export-filename user_data/backtest_results/MeanReversionMomentum.json
             "
-
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
