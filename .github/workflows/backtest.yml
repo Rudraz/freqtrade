@@ -20,10 +20,20 @@ jobs:
         run: docker pull freqtradeorg/freqtrade:stable
 
       - name: Download Data
-        run: docker run --rm -v "${GITHUB_WORKSPACE}:/freqtrade" -w /freqtrade freqtradeorg/freqtrade:stable download-data --exchange binance --timeframe 5m --days 60
+        run: docker run --rm \
+             -v "${GITHUB_WORKSPACE}:/freqtrade" \
+             -w /freqtrade \
+             --entrypoint '' \
+             freqtradeorg/freqtrade:stable \
+             freqtrade download-data --exchange binance --timeframe 5m --days 60
 
       - name: Run Backtest
-        run: docker run --rm -v "${GITHUB_WORKSPACE}:/freqtrade" -w /freqtrade freqtradeorg/freqtrade:stable backtesting --config user_data/config.json --strategy MeanReversionMomentum --timeframe 5m --export trades --export-filename user_data/backtest_results/MeanReversionMomentum.json
+        run: docker run --rm \
+             -v "${GITHUB_WORKSPACE}:/freqtrade" \
+             -w /freqtrade \
+             --entrypoint '' \
+             freqtradeorg/freqtrade:stable \
+             freqtrade backtesting --config user_data/config.json --strategy MeanReversionMomentum --timeframe 5m --export trades --export-filename user_data/backtest_results/MeanReversionMomentum.json
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
