@@ -1,103 +1,42 @@
-name: Backtest
+name: Backtest MeanReversionMomentum
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
     paths:
-      - 'user_data/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/backtest.yml'
-  pull_request:
-    paths:
-      - 'user_data/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/backtest.yml'
-
-  workflow_dispatch: {}
+      - "user_data/strategies/**"
+      - "user_data/config.json"
+      - ".github/workflows/backtest.yml"
 
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    #runs-on: self-hosted     
-    #toggle 
-    strategy:
-      matrix:
-        strategy: [ SampleStrategy ]  # adjust to your strategies
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Pull Freqtrade image
-        run: docker pull freqtradeorg/freqtrade:stable
-
-      - name: Write minimal Kraken config
-        shell: bash
+      - name: Run Freqtrade backtest in Docker
         run: |
-          set -euo pipefail
-          mkdir -p user_data
-          cat > user_data/config.json <<'JSON'
-          {
-            "dry_run": true,
-            "trading_mode": "spot",
-            "exchange": {
-              "name": "kraken",
-              "key": "DUMMY",
-              "secret": "DUMMY",
-              "ccxt_config": { "enableRateLimit": true },
-              "ccxt_async_config": { "enableRateLimit": true },
-              "pair_whitelist": ["BTC/USD"]
-            },
-
-            "pairlists": [
-              { "method": "StaticPairList"}
-            ],
-
-            "timeframe": "1h",
-            "stake_currency": "USD",
-            "stake_amount": "unlimited",
-            "max_open_trades": 2,
-            "entry_pricing":  { "price_side": "same", "use_order_book": false, "order_book_top": 1 },
-            "exit_pricing":   { "price_side": "same", "use_order_book": false, "order_book_top": 1 }
-          }
-          JSON
-      - name: Show config (first 120 lines)
-        run: |
-          sed -n '1,120p' user_data/config.json
-          
-      - name: Download trades (Kraken)
-        run: |
-          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
+          docker run --rm \
+            -v ${{ github.workspace }}:/freqtrade \
             freqtradeorg/freqtrade:stable \
-            download-data --config /freqtrade/user_data/config.json \
-            --dl-trades -t 5m --timerange 20250110-20250120
+            bash -c "
+              cd /freqtrade && \
+              freqtrade download-data \
+                --exchange binance \
+                --timeframe 5m \
+                --days 60 && \
+              freqtrade backtesting \
+                --config user_data/config.json \
+                --strategy MeanReversionMomentum \
+                --timeframe 5m \
+                --export trades \
+                --export-filename user_data/backtest_results/MeanReversionMomentum.json
+            "
 
-      - name: Run backtest (${{ matrix.strategy }})
-        run: |
-          mkdir -p user_data/backtest_results
-          docker run --rm -v ${{ github.workspace }}/user_data:/freqtrade/user_data \
-            freqtradeorg/freqtrade:stable \
-            backtesting --config /freqtrade/user_data/config.json \
-            --strategy ${{ matrix.strategy }} \
-            --timeframe 5m \
-            --timerange 20250110-20250120 \
-            --export trades \
-            --export-filename /freqtrade/user_data/backtest_results/${{ matrix.strategy }}_bt.json
-
-      #- name: Upload artifact (${{ matrix.strategy }})
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: backtest-${{ matrix.strategy }}
-      #    path: user_data/backtest_results/${{ matrix.strategy }}_bt.json
-
-      - name: Upload backtest artifacts
+      - name: Upload backtest results
         uses: actions/upload-artifact@v4
         with:
-          name: backtest-results
-          path: |
-            user_data/backtest_results/*.zip
-            user_data/backtest_results/*.json
-
-      - name: List results after backtest
-        run: |
-          echo "==> Contents of backtest_results"
-          ls -la user_data/backtest_results
+          name: backtest-meanreversion
+          path: user_data/backtest_results/**
