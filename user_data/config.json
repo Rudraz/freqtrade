@@ -5,8 +5,7 @@
   "stake_currency": "USDT",
   "stake_amount": "unlimited",
   "max_open_trades": 1,
-
-
+  
   "exchange": {
     "name": "binance",
     "key": "YOUR_API_KEY",
@@ -14,13 +13,25 @@
     "ccxt_config": {},
     "ccxt_async_config": {},
     "pair_whitelist": [
-      "BTC/USDT",
-      "ETH/USDT"
+        "BTC/USDT",
+        "ETH/USDT"
     ],
+    
     "pair_blacklist": []
-  },
+    },
+
+    "pairlists": [
+        {
+        "method": "StaticPairList",
+        "pairs": [
+            "BTC/USDT",
+            "ETH/USDT"
+        ]
+        }
+    ],
 
   "strategy": "MeanReversionMomentum",
+
   "dataformat_ohlcv": "json",
   "dataformat_trades": "json",
 
