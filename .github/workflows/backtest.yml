@@ -35,7 +35,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             backtesting \
-              --config user_data/config_backtest_ci.json \
+              --config user_data/config.json \
               --strategy MeanReversionMomentum \
               --timeframe 5m \
               --timeframe 5m \
