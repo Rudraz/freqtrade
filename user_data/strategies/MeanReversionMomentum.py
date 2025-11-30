@@ -1,68 +1,50 @@
-from freqtrade.strategy import IStrategy
-import pandas as pd
+from freqtrade.strategy.interface import IStrategy
+from pandas import DataFrame
 import talib.abstract as ta
 
-
 class MeanReversionMomentum(IStrategy):
-    """
-    Simple example strategy:
-    - Uses RSI and two EMAs
-    - Buys when RSI is oversold and fast EMA > slow EMA
-    - Exits when RSI is overbought
-    """
-
-    # Use 5m candles
-    timeframe = "5m"
-
-    # Simple minimal ROI target: 2%
-    minimal_roi = {
-        "0": 0.02
-    }
-
-    # Stoploss at -3%
-    stoploss = -0.03
-
-    # Only long for now
-    can_short = False
-
-    # Process only new candles to reduce CPU
-    process_only_new_candles = True
-
-    # Number of candles needed before we start
+    timeframe = '5m'
     startup_candle_count = 50
 
-    def populate_indicators(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
-        """
-        Add RSI and two EMAs.
-        """
-        dataframe["rsi"] = ta.RSI(dataframe, timeperiod=14)
-        dataframe["ema_fast"] = ta.EMA(dataframe, timeperiod=9)
-        dataframe["ema_slow"] = ta.EMA(dataframe, timeperiod=21)
-        return dataframe
+    # Basic ROI / stoploss
+    minimal_roi = {"0": 0.02}
+    stoploss = -0.03
 
-    def populate_entry_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
-        """
-        Entry logic:
-        - RSI below 30 (oversold)
-        - Fast EMA above slow EMA (upward momentum)
-        """
-        dataframe.loc[:, "enter_long"] = 0
+    # Only trade 1 pair at a time
+    max_open_trades = 1
 
-        buy_cond = (
-            (dataframe["rsi"] < 30) &
-            (dataframe["ema_fast"] > dataframe["ema_slow"])
-        )
+    # Core indicators
+    def populate_indicators(self, df: DataFrame, metadata: dict) -> DataFrame:
+        df['rsi'] = ta.RSI(df, timeperiod=14)
+        df['ema_fast'] = ta.EMA(df, timeperiod=12)
+        df['ema_slow'] = ta.EMA(df, timeperiod=26)
+        df['ema_trend'] = ta.EMA(df, timeperiod=50)
 
-        dataframe.loc[buy_cond, "enter_long"] = 1
-        return dataframe
+        # Volatility filter
+        df['atr'] = ta.ATR(df, timeperiod=14)
 
-    def populate_exit_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
-        """
-        Exit logic:
-        - RSI above 70 (overbought)
-        """
-        dataframe.loc[:, "exit_long"] = 0
+        return df
 
-        sell_cond = dataframe["rsi"] > 70
-        dataframe.loc[sell_cond, "exit_long"] = 1
-        return dataframe
+    # BUY
+    def populate_buy_trend(self, df: DataFrame, metadata: dict) -> DataFrame:
+        df.loc[
+            (
+                (df['rsi'] < 32) &
+                (df['ema_fast'] > df['ema_slow']) &       # Momentum turning up
+                (df['close'] < df['ema_trend']) &         # Mean reversion zone
+                (df['atr'] > df['atr'].rolling(20).mean() * 0.8)  # Enough volatility
+            ),
+            'buy'
+        ] = 1
+        return df
+
+    # SELL
+    def populate_sell_trend(self, df: DataFrame, metadata: dict) -> DataFrame:
+        df.loc[
+            (
+                (df['rsi'] > 55) &
+                (df['close'] > df['ema_trend'])           # Price mean-reverts upward
+            ),
+            'sell'
+        ] = 1
+        return df
