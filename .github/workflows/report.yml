@@ -14,144 +14,105 @@ jobs:
       - name: Pull Freqtrade Docker Image
         run: docker pull freqtradeorg/freqtrade:stable
 
-      - name: Backtest (60 days, KuCoin)
-        run: |
-          mkdir -p user_data/backtest_results
-
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
-            freqtradeorg/freqtrade:stable \
-            download-data \
-              --exchange kucoin \
-              --timeframe 5m \
-              --days 60
-
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
-            freqtradeorg/freqtrade:stable \
-            backtesting \
-              --config user_data/config.json \
-              --strategy MeanReversionMomentum \
-              --timeframe 5m \
-              --export trades \
-              --export-filename user_data/backtest_results/Report_Backtest_MeanReversionMomentum.json
-
-      - name: Forward Test (~2 days, KuCoin)
+      - name: Run backtest and forward test (KuCoin, 5m)
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            -v "${GITHUB_WORKSPACE}:/freqtrade" \
+            -w /freqtrade \
             freqtradeorg/freqtrade:stable \
-            download-data \
-              --exchange kucoin \
-              --timeframe 5m \
-              --days 2
+            bash -lc '
+              mkdir -p user_data/backtest_results
 
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
-            freqtradeorg/freqtrade:stable \
-            backtesting \
-              --config user_data/config.json \
-              --strategy MeanReversionMomentum \
-              --timeframe 5m \
-              --export trades \
-              --export-filename user_data/backtest_results/Report_Forward_MeanReversionMomentum.json
+              # 60-day backtest
+              freqtrade download-data \
+                --config user_data/config.json \
+                --exchange kucoin \
+                --timeframe 5m \
+                --days 60
 
-      - name: Generate HTML report
+              freqtrade backtesting \
+                --config user_data/config.json \
+                --strategy MeanReversionMomentum \
+                --timeframe 5m \
+                --backtest-filename user_data/backtest_results/MeanRev_Backtest
+
+              # ~2-day forward slice
+              freqtrade backtesting \
+                --config user_data/config.json \
+                --strategy MeanReversionMomentum \
+                --timeframe 5m \
+                --timerange -2d \
+                --backtest-filename user_data/backtest_results/MeanRev_Forward
+            '
+
+      - name: Generate HTML report from meta files
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pandas matplotlib
 
           python << 'EOF'
           import json
-          import os
-          import pandas as pd
-          import matplotlib.pyplot as plt
+          import pathlib
 
-          base_dir = "user_data/backtest_results"
+          base = pathlib.Path("user_data/backtest_results")
 
-          def load_trades(path):
-              if not os.path.exists(path):
-                  return pd.DataFrame()
-              with open(path, "r") as f:
-                  data = json.load(f)
-              if not data:
-                  return pd.DataFrame()
-              return pd.DataFrame(data)
+          # These are created by --backtest-filename above:
+          bt_meta_path = base / "MeanRev_Backtest.meta.json"
+          fw_meta_path = base / "MeanRev_Forward.meta.json"
 
-          backtest_file = os.path.join(base_dir, "Report_Backtest_MeanReversionMomentum.json")
-          forward_file = os.path.join(base_dir, "Report_Forward_MeanReversionMomentum.json")
+          bt_meta = json.loads(bt_meta_path.read_text())
+          fw_meta = json.loads(fw_meta_path.read_text())
 
-          df_back = load_trades(backtest_file)
-          df_fwd = load_trades(forward_file)
+          def get(d, *keys, default=0.0):
+              for k in keys:
+                  if isinstance(d, dict) and k in d:
+                      return d[k]
+              return default
 
-          def summarize(df):
-              if df.empty:
-                  return {
-                      "trades": 0,
-                      "avg_profit_pct": 0.0,
-                      "total_profit": 0.0,
-                  }
-              trades = len(df)
-              avg_profit_pct = df.get("profit_pct", pd.Series([0]*trades)).mean()
-              total_profit = df.get("profit_abs", pd.Series([0]*trades)).sum()
-              return {
-                  "trades": trades,
-                  "avg_profit_pct": avg_profit_pct,
-                  "total_profit": total_profit,
-              }
+          def extract(meta):
+              trades = int(get(meta, "total_trades", default=0))
+              avg_profit = float(get(meta, "avg_profit", "avg_profit_pct", default=0.0))
+              tot_profit = float(get(meta, "total_profit", "total_profit_abs", default=0.0))
+              return trades, avg_profit, tot_profit
 
-          back_s = summarize(df_back)
-          fwd_s = summarize(df_fwd)
+          bt_trades, bt_avg, bt_tot = extract(bt_meta)
+          fw_trades, fw_avg, fw_tot = extract(fw_meta)
 
-          eq_img = None
-          if not df_back.empty and "profit_abs" in df_back.columns:
-              eq = df_back["profit_abs"].cumsum()
-              plt.figure()
-              eq.plot()
-              plt.xlabel("Trade #")
-              plt.ylabel("Cumulative Profit (USDT)")
-              plt.title("Backtest Equity Curve - MeanReversionMomentum")
-              os.makedirs("report_assets", exist_ok=True)
-              eq_path = os.path.join("report_assets", "backtest_equity.png")
-              plt.savefig(eq_path, bbox_inches="tight")
-              plt.close()
-              eq_img = eq_path
+          html = f"""<!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>MeanReversionMomentum Strategy Report</title>
+          </head>
+          <body>
+            <h1>MeanReversionMomentum Strategy Report</h1>
 
-          html = []
-          html.append("<html><head><meta charset='utf-8'><title>MeanReversionMomentum Report</title></head><body>")
-          html.append("<h1>MeanReversionMomentum Strategy Report</h1>")
+            <h2>Backtest (60 days, KuCoin, 5m)</h2>
+            <table border="1" cellpadding="4" cellspacing="0">
+              <tr><th>Metric</th><th>Value</th></tr>
+              <tr><td>Trades</td><td>{bt_trades}</td></tr>
+              <tr><td>Avg Profit %</td><td>{bt_avg:.4f}</td></tr>
+              <tr><td>Total Profit (USDT)</td><td>{bt_tot:.4f}</td></tr>
+            </table>
 
-          html.append("<h2>Backtest (60 days, KuCoin, 5m)</h2>")
-          html.append("<table border='1' cellpadding='4' cellspacing='0'>")
-          html.append("<tr><th>Metric</th><th>Value</th></tr>")
-          html.append(f"<tr><td>Trades</td><td>{back_s['trades']}</td></tr>")
-          html.append(f"<tr><td>Avg Profit %</td><td>{back_s['avg_profit_pct']:.4f}</td></tr>")
-          html.append(f"<tr><td>Total Profit (USDT)</td><td>{back_s['total_profit']:.4f}</td></tr>")
-          html.append("</table>")
+            <h2>Forward Test (~2 days, KuCoin, 5m)</h2>
+            <table border="1" cellpadding="4" cellspacing="0">
+              <tr><th>Metric</th><th>Value</th></tr>
+              <tr><td>Trades</td><td>{fw_trades}</td></tr>
+              <tr><td>Avg Profit %</td><td>{fw_avg:.4f}</td></tr>
+              <tr><td>Total Profit (USDT)</td><td>{fw_tot:.4f}</td></tr>
+            </table>
+          </body>
+          </html>
+          """
 
-          html.append("<h2>Forward Test (~2 days, KuCoin, 5m)</h2>")
-          html.append("<table border='1' cellpadding='4' cellspacing='0'>")
-          html.append("<tr><th>Metric</th><th>Value</th></tr>")
-          html.append(f"<tr><td>Trades</td><td>{fwd_s['trades']}</td></tr>")
-          html.append(f"<tr><td>Avg Profit %</td><td>{fwd_s['avg_profit_pct']:.4f}</td></tr>")
-          html.append(f"<tr><td>Total Profit (USDT)</td><td>{fwd_s['total_profit']:.4f}</td></tr>")
-          html.append("</table>")
-
-          if eq_img is not None:
-              html.append("<h2>Backtest Equity Curve</h2>")
-              html.append(f"<img src='{eq_img}' alt='Backtest Equity Curve' />")
-
-          html.append("</body></html>")
-
-          with open("report_meanreversion.html", "w", encoding="utf-8") as f:
-              f.write("\n".join(html))
+          pathlib.Path("report_meanreversion.html").write_text(html, encoding="utf-8")
           EOF
 
-      - name: Upload HTML report and raw JSON
+      - name: Upload HTML and meta
         uses: actions/upload-artifact@v4
         with:
           name: strategy-report-meanreversion
           path: |
             report_meanreversion.html
-            report_assets/**
-            user_data/backtest_results/**
+            user_data/backtest_results/MeanRev_Backtest.meta.json
+            user_data/backtest_results/MeanRev_Forward.meta.json
