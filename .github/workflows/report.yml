@@ -16,6 +16,8 @@ jobs:
 
       - name: Backtest (60 days, KuCoin)
         run: |
+          mkdir -p user_data/backtest_results
+
           docker run --rm \
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
@@ -68,13 +70,13 @@ jobs:
           base_dir = "user_data/backtest_results"
 
           def load_trades(path):
-            if not os.path.exists(path):
-              return pd.DataFrame()
-            with open(path, "r") as f:
-              data = json.load(f)
-            if not data:
-              return pd.DataFrame()
-            return pd.DataFrame(data)
+              if not os.path.exists(path):
+                  return pd.DataFrame()
+              with open(path, "r") as f:
+                  data = json.load(f)
+              if not data:
+                  return pd.DataFrame()
+              return pd.DataFrame(data)
 
           backtest_file = os.path.join(base_dir, "Report_Backtest_MeanReversionMomentum.json")
           forward_file = os.path.join(base_dir, "Report_Forward_MeanReversionMomentum.json")
@@ -83,38 +85,37 @@ jobs:
           df_fwd = load_trades(forward_file)
 
           def summarize(df):
-            if df.empty:
+              if df.empty:
+                  return {
+                      "trades": 0,
+                      "avg_profit_pct": 0.0,
+                      "total_profit": 0.0,
+                  }
+              trades = len(df)
+              avg_profit_pct = df.get("profit_pct", pd.Series([0]*trades)).mean()
+              total_profit = df.get("profit_abs", pd.Series([0]*trades)).sum()
               return {
-                "trades": 0,
-                "avg_profit_pct": 0.0,
-                "total_profit": 0.0,
+                  "trades": trades,
+                  "avg_profit_pct": avg_profit_pct,
+                  "total_profit": total_profit,
               }
-            trades = len(df)
-            avg_profit_pct = df.get("profit_pct", pd.Series([0]*trades)).mean()
-            total_profit = df.get("profit_abs", pd.Series([0]*trades)).sum()
-            return {
-              "trades": trades,
-              "avg_profit_pct": avg_profit_pct,
-              "total_profit": total_profit,
-            }
 
           back_s = summarize(df_back)
           fwd_s = summarize(df_fwd)
 
-          # Simple equity curve for backtest if trades exist
           eq_img = None
           if not df_back.empty and "profit_abs" in df_back.columns:
-            eq = df_back["profit_abs"].cumsum()
-            plt.figure()
-            eq.plot()
-            plt.xlabel("Trade #")
-            plt.ylabel("Cumulative Profit (USDT)")
-            plt.title("Backtest Equity Curve - MeanReversionMomentum")
-            os.makedirs("report_assets", exist_ok=True)
-            eq_path = os.path.join("report_assets", "backtest_equity.png")
-            plt.savefig(eq_path, bbox_inches="tight")
-            plt.close()
-            eq_img = eq_path
+              eq = df_back["profit_abs"].cumsum()
+              plt.figure()
+              eq.plot()
+              plt.xlabel("Trade #")
+              plt.ylabel("Cumulative Profit (USDT)")
+              plt.title("Backtest Equity Curve - MeanReversionMomentum")
+              os.makedirs("report_assets", exist_ok=True)
+              eq_path = os.path.join("report_assets", "backtest_equity.png")
+              plt.savefig(eq_path, bbox_inches="tight")
+              plt.close()
+              eq_img = eq_path
 
           html = []
           html.append("<html><head><meta charset='utf-8'><title>MeanReversionMomentum Report</title></head><body>")
@@ -137,19 +138,20 @@ jobs:
           html.append("</table>")
 
           if eq_img is not None:
-            html.append("<h2>Backtest Equity Curve</h2>")
-            html.append(f"<img src='{eq_img}' alt='Backtest Equity Curve' />")
+              html.append("<h2>Backtest Equity Curve</h2>")
+              html.append(f"<img src='{eq_img}' alt='Backtest Equity Curve' />")
 
           html.append("</body></html>")
 
           with open("report_meanreversion.html", "w", encoding="utf-8") as f:
-            f.write("\n".join(html))
+              f.write("\n".join(html))
           EOF
 
-      - name: Upload HTML report
+      - name: Upload HTML report and raw JSON
         uses: actions/upload-artifact@v4
         with:
           name: strategy-report-meanreversion
           path: |
             report_meanreversion.html
             report_assets/**
+            user_data/backtest_results/**
