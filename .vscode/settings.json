@@ -1,0 +1,40 @@
+{
+  // Remote SSH — connect to Pi with Ctrl+Shift+P → "Remote-SSH: Connect to Host"
+  "remote.SSH.defaultExtensions": [
+    "ms-python.python",
+    "ms-python.pylint"
+  ],
+
+  // Default remote host — type "freqpi" when prompted
+  "remote.SSH.configFile": "~/.ssh/config",
+
+  // Auto-save when you switch windows (useful when editing on Pi)
+  "files.autoSave": "onFocusChange",
+
+  // Python settings for freqtrade strategy development
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+
+  // Git settings
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.postCommitCommand": "none",
+
+  // Editor settings
+  "editor.formatOnSave": true,
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+
+  // File associations
+  "files.associations": {
+    "*.yml": "yaml",
+    "*.json": "json"
+  },
+
+  // Exclude noise from file explorer
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/user_data/data/**": true,
+    "**/user_data/logs/**": true
+  }
+}
