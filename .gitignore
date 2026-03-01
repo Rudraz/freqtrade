@@ -5,7 +5,8 @@ user_data/plot/
 user_data/freqaimodels/
 user_data/data/
 user_data/*.sqlite
-**/.ipynb_checkpoints
-user_data/config.local.json
 user_data/config.json
-!user_data/config.json
+user_data/config.deploy.json
+user_data/config.local.json
+user_data/freqtrade_config.json
+**/.ipynb_checkpoints
