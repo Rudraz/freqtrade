@@ -7,19 +7,29 @@ on:
       - "user_data/strategies/**"
       - "user_data/config.json"
       - ".github/workflows/backtest.yml"
+      - "scripts/validate_backtest.py"
 
 jobs:
   backtest:
     runs-on: ubuntu-latest
+    outputs:
+      validation_passed: ${{ steps.validate.outputs.passed }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Pull Freqtrade Docker Image
-        run: docker pull freqtradeorg/freqtrade:stable
+      - name: Decode config from secret
+        run: |
+          echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > user_data/config.json
+          echo "✅ Config decoded successfully"
 
-      - name: Download Data
+      - name: Pull Freqtrade Docker Image
+        run: |
+          docker pull freqtradeorg/freqtrade:stable
+          echo "✅ Docker image ready"
+
+      - name: Download Historical Data (60 days, KuCoin)
         run: |
           docker run --rm \
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
@@ -28,10 +38,11 @@ jobs:
               --exchange kucoin \
               --timeframe 5m \
               --days 60
-
+          echo "✅ Data downloaded"
 
       - name: Run Backtest
         run: |
+          mkdir -p user_data/backtest_results
           docker run --rm \
             -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
@@ -41,10 +52,48 @@ jobs:
               --timeframe 5m \
               --export trades \
               --export-filename user_data/backtest_results/MeanReversionMomentum.json
+          echo "✅ Backtest complete"
 
+      - name: Set up Python for validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validation dependencies
+        run: pip install pandas numpy
+
+      - name: Validate backtest results
+        id: validate
+        run: |
+          python scripts/validate_backtest.py \
+            user_data/backtest_results/MeanReversionMomentum.json
+        continue-on-error: false
 
       - name: Upload backtest results
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: backtest-meanreversion
+          name: backtest-meanreversion-${{ github.sha }}
           path: user_data/backtest_results/**
+          retention-days: 30
+
+      - name: Notify Telegram — Success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="✅ Backtest PASSED for MeanReversionMomentum%0ACommit: ${{ github.sha }}%0ATriggering deploy to Pi..."
+
+      - name: Notify Telegram — Failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="❌ Backtest FAILED for MeanReversionMomentum%0ACommit: ${{ github.sha }}%0ADeploy blocked. Check GitHub Actions for details."
+
+  # Only runs if backtest job succeeded
+  trigger-deploy:
+    needs: backtest
+    if: success()
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

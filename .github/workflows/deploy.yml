@@ -1,12 +1,74 @@
-name: Placeholder Deploy Workflow
+name: Deploy to Raspberry Pi
 
 on:
   workflow_dispatch:
+  workflow_call:  # allows backtest.yml to call this after passing
 
 jobs:
-  noop:
+  deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Do nothing
-        run: echo "Placeholder workflow. Safe and valid."
 
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PI_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
+          echo "✅ SSH key configured"
+
+      - name: Test SSH connection
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
+            "echo '✅ SSH connection successful' && docker ps"
+
+      - name: Pull latest code on Pi
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
+            "cd /home/bala/freqtrade && git fetch origin && git reset --hard origin/main"
+          echo "✅ Code updated on Pi"
+
+      - name: Decode and update config on Pi
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
+            "echo '${{ secrets.FT_CONFIG_JSON_BASE64 }}' | base64 -d > /home/bala/freqtrade/user_data/config.json"
+          echo "✅ Config updated on Pi"
+
+      - name: Restart freqtrade Docker container
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
+            "cd /home/bala/freqtrade && docker compose down && sleep 3 && docker compose up -d"
+          echo "✅ Docker container restarted"
+
+      - name: Verify bot started successfully
+        run: |
+          sleep 15
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
+            "docker ps | grep freqtrade && docker logs freqtrade --tail 10"
+
+      - name: Notify Telegram — Deploy Success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="🚀 Deploy SUCCESS%0AStrategy: MeanReversionMomentum%0ACommit: ${{ github.sha }}%0ABot is live on Pi ✅"
+
+      - name: Notify Telegram — Deploy Failed
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="💥 Deploy FAILED%0ACommit: ${{ github.sha }}%0ABot may be offline — check Pi immediately!"
