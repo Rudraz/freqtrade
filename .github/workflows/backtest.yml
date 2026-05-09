@@ -54,14 +54,6 @@ jobs:
               --export-filename user_data/backtest_results/MeanReversionMomentum.json
           echo "✅ Backtest complete"
 
-      - name: Set up Python for validation
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install validation dependencies
-        run: pip install pandas numpy
-
       - name: Validate backtest results
         id: validate
         run: |
