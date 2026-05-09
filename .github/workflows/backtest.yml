@@ -57,8 +57,9 @@ jobs:
       - name: Validate backtest results
         id: validate
         run: |
-          python freqtrade/scripts/validate_backtest.py \
-            freqtrade/user_data/backtest_results/MeanReversionMomentum.json
+          RESULT=$(find freqtrade/user_data/backtest_results/ -name "*.json" ! -name "*.meta.json" | sort | tail -1)
+          echo "Validating: $RESULT"
+          python3 freqtrade/scripts/validate_backtest.py "$RESULT"
         continue-on-error: false
 
       - name: Upload backtest results
