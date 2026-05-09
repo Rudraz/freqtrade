@@ -29,7 +29,15 @@ jobs:
       - name: Decode config from secret
         run: |
           echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
-          echo "✅ Config decoded"
+          python3 -c "
+import json
+with open('freqtrade/user_data/config.json') as f: d = json.load(f)
+d['exchange']['name'] = 'bybit'
+d['exchange']['key'] = ''
+d['exchange']['secret'] = ''
+with open('freqtrade/user_data/config.json', 'w') as f: json.dump(d, f, indent=2)
+"
+          echo "✅ Config decoded and patched for CI (bybit)"
 
       - name: Pull Freqtrade Docker Image
         run: |
@@ -42,7 +50,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
-              --exchange binance \
+              --exchange bybit \
               --timeframe 5m \
               --days 90
           echo "✅ Data downloaded (90 days)"
