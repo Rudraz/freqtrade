@@ -35,7 +35,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
-              --exchange kucoin \
+              --exchange binance \
               --timeframe 5m \
               --days 60
           echo "✅ Data downloaded"

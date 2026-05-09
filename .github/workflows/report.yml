@@ -26,7 +26,7 @@ jobs:
               # 60-day backtest
               freqtrade download-data \
                 --config user_data/config.json \
-                --exchange kucoin \
+                --exchange binance \
                 --timeframe 5m \
                 --days 60
 
