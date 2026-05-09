@@ -20,7 +20,7 @@ on:
 
 jobs:
   hyperopt:
-    runs-on: ubuntu-latest
+    runs-on: raspberry-pi
 
     steps:
       - name: Checkout repo
@@ -29,10 +29,7 @@ jobs:
       - name: Decode config from secret
         run: |
           echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
-          jq '.exchange.name="bybit" | .exchange.key="" | .exchange.secret=""' \
-            freqtrade/user_data/config.json > /tmp/ci_config.json
-          mv /tmp/ci_config.json freqtrade/user_data/config.json
-          echo "✅ Config decoded and patched for CI (bybit)"
+          echo "✅ Config decoded"
 
       - name: Pull Freqtrade Docker Image
         run: |
@@ -45,7 +42,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
-              --exchange bybit \
+              --exchange binance \
               --timeframe 5m \
               --days 90
           echo "✅ Data downloaded (90 days)"

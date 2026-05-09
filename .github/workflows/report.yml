@@ -5,7 +5,7 @@ on:
 
 jobs:
   report:
-    runs-on: ubuntu-latest
+    runs-on: raspberry-pi
 
     steps:
       - name: Checkout repo
@@ -26,7 +26,7 @@ jobs:
               # 60-day backtest
               freqtrade download-data \
                 --config user_data/config.json \
-                --exchange bybit \
+                --exchange binance \
                 --timeframe 5m \
                 --days 60
 
