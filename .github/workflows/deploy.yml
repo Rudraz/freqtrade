@@ -40,7 +40,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
             ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
-            "echo '${{ secrets.FT_CONFIG_JSON_BASE64 }}' | base64 -d > /home/bala/freqtrade/user_data/config.json"
+            "echo '${{ secrets.FT_CONFIG_JSON_BASE64 }}' | base64 -d > /home/bala/freqtrade/freqtrade/user_data/config.json"
           echo "✅ Config updated on Pi"
 
       - name: Restart freqtrade Docker container
@@ -48,7 +48,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
             ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} \
-            "cd /home/bala/freqtrade && docker compose down && sleep 3 && docker compose up -d"
+            "cd /home/bala/freqtrade/freqtrade && docker-compose down && sleep 3 && docker-compose up -d"
           echo "✅ Docker container restarted"
 
       - name: Verify bot started successfully

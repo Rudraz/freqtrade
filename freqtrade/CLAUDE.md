@@ -13,11 +13,13 @@ and CI/CD monitoring with minimal manual intervention from Bala.
 - **SSH alias:** `freqpi` (configured in ~/.ssh/config)
 - **User:** `bala`
 - **IP:** `192.168.68.86`
-- **Freqtrade path:** `/home/bala/freqtrade/`
+- **Git repo root on Pi:** `/home/bala/freqtrade/`
+- **Working directory (docker-compose):** `/home/bala/freqtrade/freqtrade/`
 - **Docker container:** `freqtrade`
-- **Config file:** `/home/bala/freqtrade/user_data/config.json`
-- **Logs:** `/home/bala/freqtrade/user_data/logs/freqtrade.log`
+- **Config file:** `/home/bala/freqtrade/freqtrade/user_data/config.json`
+- **Logs:** `/home/bala/freqtrade/freqtrade/user_data/logs/freqtrade.log`
 - **Timezone:** `Asia/Singapore` (SGT = UTC+8)
+- **Docker Compose binary:** `docker-compose` (not `docker compose`)
 
 ### Common Pi Commands (run via SSH)
 ```bash
@@ -28,7 +30,7 @@ ssh freqpi "docker ps"
 ssh freqpi "docker logs freqtrade --tail 50"
 
 # Restart bot after strategy update
-ssh freqpi "cd /home/bala/freqtrade && docker compose down && docker compose up -d"
+ssh freqpi "cd /home/bala/freqtrade/freqtrade && docker-compose down && docker-compose up -d"
 
 # Check if bot is trading
 ssh freqpi "docker logs freqtrade --tail 20 | grep -E 'TRADE|BUY|SELL|profit'"
@@ -39,9 +41,9 @@ ssh freqpi "df -h"
 # Check Pi CPU/memory
 ssh freqpi "top -bn1 | head -5"
 
-# Run hyperopt on Pi (CPU-bound — Pi 5 handles it with 4 cores)
-ssh freqpi "cd /home/bala/freqtrade && docker compose run --rm freqtrade hyperopt \
-  --config user_data/config.json \
+# Run hyperopt on Pi (CPU-bound — Pi 5 handles 4 cores)
+ssh freqpi "cd /home/bala/freqtrade/freqtrade && docker-compose run --rm freqtrade hyperopt \
+  --config /freqtrade/user_data/config.json \
   --hyperopt-loss SharpeHyperOptLoss \
   --strategy MeanReversionMomentum \
   --timeframe 5m \
@@ -99,7 +101,7 @@ gh secret list --repo Rudraz/freqtrade
 ---
 
 ## Trading Configuration
-- **Exchange:** KuCoin
+- **Exchange:** Binance (dry-run mode)
 - **Active Strategy:** `MeanReversionMomentum`
 - **Timeframe:** `5m`
 - **Mode:** Dry-run (until live trading approved by Bala)
