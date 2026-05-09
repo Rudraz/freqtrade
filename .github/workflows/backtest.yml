@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "user_data/strategies/**"
-      - "user_data/config.json"
+      - "freqtrade/user_data/strategies/**"
+      - "freqtrade/user_data/config.json"
       - ".github/workflows/backtest.yml"
-      - "scripts/validate_backtest.py"
+      - "freqtrade/scripts/validate_backtest.py"
 
 jobs:
   backtest:
@@ -21,7 +21,7 @@ jobs:
 
       - name: Decode config from secret
         run: |
-          echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > user_data/config.json
+          echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
           echo "✅ Config decoded successfully"
 
       - name: Pull Freqtrade Docker Image
@@ -32,7 +32,7 @@ jobs:
       - name: Download Historical Data (60 days, KuCoin)
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
               --exchange kucoin \
@@ -42,9 +42,9 @@ jobs:
 
       - name: Run Backtest
         run: |
-          mkdir -p user_data/backtest_results
+          mkdir -p freqtrade/user_data/backtest_results
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             backtesting \
               --config user_data/config.json \
@@ -65,8 +65,8 @@ jobs:
       - name: Validate backtest results
         id: validate
         run: |
-          python scripts/validate_backtest.py \
-            user_data/backtest_results/MeanReversionMomentum.json
+          python freqtrade/scripts/validate_backtest.py \
+            freqtrade/user_data/backtest_results/MeanReversionMomentum.json
         continue-on-error: false
 
       - name: Upload backtest results
@@ -74,7 +74,7 @@ jobs:
         if: always()
         with:
           name: backtest-meanreversion-${{ github.sha }}
-          path: user_data/backtest_results/**
+          path: freqtrade/user_data/backtest_results/**
           retention-days: 30
 
       - name: Notify Telegram — Success

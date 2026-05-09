@@ -17,7 +17,7 @@ jobs:
       - name: Run backtest and forward test (KuCoin, 5m)
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/freqtrade" \
+            -v "${GITHUB_WORKSPACE}/freqtrade:/freqtrade" \
             -w /freqtrade \
             freqtradeorg/freqtrade:stable \
             bash -lc '

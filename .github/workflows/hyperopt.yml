@@ -1,0 +1,154 @@
+name: Hyperopt MeanReversionMomentum
+
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Number of hyperopt epochs"
+        required: false
+        default: "100"
+      loss_function:
+        description: "Loss function (SharpeHyperOptLoss | SortinoHyperOptLoss | ProfitDrawDownHyperOptLoss)"
+        required: false
+        default: "SharpeHyperOptLoss"
+      spaces:
+        description: "Spaces to optimise (buy sell roi stoploss trailing)"
+        required: false
+        default: "buy sell roi stoploss"
+  schedule:
+    - cron: "0 2 * * 0"   # every Sunday at 02:00 UTC
+
+jobs:
+  hyperopt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Decode config from secret
+        run: |
+          echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
+          echo "✅ Config decoded"
+
+      - name: Pull Freqtrade Docker Image
+        run: |
+          docker pull freqtradeorg/freqtrade:stable
+          echo "✅ Docker image ready"
+
+      - name: Download Historical Data (90 days, KuCoin)
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
+            freqtradeorg/freqtrade:stable \
+            download-data \
+              --exchange kucoin \
+              --timeframe 5m \
+              --days 90
+          echo "✅ Data downloaded (90 days)"
+
+      - name: Run Hyperopt
+        run: |
+          EPOCHS="${{ github.event.inputs.epochs || '100' }}"
+          LOSS="${{ github.event.inputs.loss_function || 'SharpeHyperOptLoss' }}"
+          SPACES="${{ github.event.inputs.spaces || 'buy sell roi stoploss' }}"
+
+          echo "🔍 Running hyperopt: ${EPOCHS} epochs, loss=${LOSS}, spaces=${SPACES}"
+
+          mkdir -p freqtrade/user_data/hyperopt_results
+
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
+            freqtradeorg/freqtrade:stable \
+            hyperopt \
+              --config user_data/config.json \
+              --strategy MeanReversionMomentum \
+              --hyperopt-loss "${LOSS}" \
+              --timeframe 5m \
+              --epochs "${EPOCHS}" \
+              --spaces ${SPACES} \
+              -j -1 \
+              --export-csv /freqtrade/user_data/hyperopt_results/hyperopt_run.csv
+
+          echo "✅ Hyperopt complete"
+
+      - name: Extract best parameters
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
+            freqtradeorg/freqtrade:stable \
+            hyperopt-show --best --print-json \
+            > freqtrade/user_data/hyperopt_results/best_params.json
+          echo "✅ Best params extracted"
+          cat user_data/hyperopt_results/best_params.json
+
+      - name: Set up Python for validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validation dependencies
+        run: pip install pandas numpy
+
+      - name: Validate hyperopt improvement
+        id: validate
+        run: |
+          python freqtrade/scripts/validate_hyperopt.py \
+            freqtrade/user_data/hyperopt_results/best_params.json \
+            freqtrade/user_data/strategies/MeanReversionMomentum.py
+        continue-on-error: true
+
+      - name: Upload hyperopt results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hyperopt-${{ github.sha }}
+          path: |
+            freqtrade/user_data/hyperopt_results/best_params.json
+            freqtrade/user_data/hyperopt_results/hyperopt_run.csv
+          retention-days: 30
+
+      - name: Apply best params to strategy
+        if: steps.validate.outcome == 'success'
+        run: |
+          python freqtrade/scripts/apply_hyperopt_params.py \
+            freqtrade/user_data/hyperopt_results/best_params.json \
+            freqtrade/user_data/strategies/MeanReversionMomentum.py
+
+      - name: Create Pull Request with optimised params
+        if: steps.validate.outcome == 'success'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "hyperopt: update MeanReversionMomentum params (${{ github.run_id }})"
+          branch: "hyperopt/meanreversion-${{ github.run_id }}"
+          title: "Hyperopt: Updated MeanReversionMomentum parameters"
+          body: |
+            ## Hyperopt Results
+
+            - **Epochs:** ${{ github.event.inputs.epochs || '100' }}
+            - **Loss function:** ${{ github.event.inputs.loss_function || 'SharpeHyperOptLoss' }}
+            - **Spaces:** ${{ github.event.inputs.spaces || 'buy sell roi stoploss' }}
+            - **Data:** 90 days KuCoin 5m
+
+            Best params extracted and applied to strategy. Validation passed.
+
+            **Review the diff carefully before merging.** Merging triggers a full backtest + deploy.
+
+            [View full hyperopt artifact for this run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          labels: hyperopt,strategy-update
+          draft: false
+
+      - name: Notify Telegram — Hyperopt Done (improved)
+        if: steps.validate.outcome == 'success'
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="🧬 Hyperopt COMPLETE — improved params found%0AStrategy: MeanReversionMomentum%0APR opened for review. Check GitHub to merge."
+
+      - name: Notify Telegram — Hyperopt Done (no improvement)
+        if: steps.validate.outcome != 'success'
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="🧬 Hyperopt complete — no significant improvement found%0AStrategy: MeanReversionMomentum%0ACurrent params remain active."

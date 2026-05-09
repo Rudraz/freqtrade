@@ -19,7 +19,7 @@ jobs:
       - name: Download Latest Market Data (KuCoin)
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             download-data \
               --exchange kucoin \
@@ -29,18 +29,18 @@ jobs:
       - name: Run Forward Test (Last 24h)
         run: |
           docker run --rm \
-            -v "${GITHUB_WORKSPACE}/user_data:/freqtrade/user_data" \
+            -v "${GITHUB_WORKSPACE}/freqtrade/user_data:/freqtrade/user_data" \
             freqtradeorg/freqtrade:stable \
             backtesting \
-              --config user_data/config.json \
+              --config /freqtrade/user_data/config.json \
               --strategy MeanReversionMomentum \
               --timeframe 5m \
               --export trades \
-              --export-filename user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
+              --export-filename /freqtrade/user_data/backtest_results/ForwardTest_MeanReversionMomentum.json
 
       - name: Upload forwardtest results
         uses: actions/upload-artifact@v4
         with:
           name: forwardtest-meanreversion
-          path: user_data/backtest_results/**
+          path: freqtrade/user_data/backtest_results/**
 
