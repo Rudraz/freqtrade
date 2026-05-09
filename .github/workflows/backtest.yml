@@ -22,16 +22,9 @@ jobs:
       - name: Decode config from secret
         run: |
           echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
-          python3 << 'PYEOF'
-import json
-with open('freqtrade/user_data/config.json') as f:
-    d = json.load(f)
-d['exchange']['name'] = 'bybit'
-d['exchange']['key'] = ''
-d['exchange']['secret'] = ''
-with open('freqtrade/user_data/config.json', 'w') as f:
-    json.dump(d, f, indent=2)
-PYEOF
+          jq '.exchange.name="bybit" | .exchange.key="" | .exchange.secret=""' \
+            freqtrade/user_data/config.json > /tmp/ci_config.json
+          mv /tmp/ci_config.json freqtrade/user_data/config.json
           echo "✅ Config decoded and patched for CI (bybit)"
 
       - name: Pull Freqtrade Docker Image
