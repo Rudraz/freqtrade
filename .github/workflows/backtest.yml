@@ -22,15 +22,16 @@ jobs:
       - name: Decode config from secret
         run: |
           echo "${{ secrets.FT_CONFIG_JSON_BASE64 }}" | base64 -d > freqtrade/user_data/config.json
-          # Patch exchange to bybit for CI — GitHub runners are geo-blocked by Binance (HTTP 451)
-          python3 -c "
+          python3 << 'PYEOF'
 import json
-with open('freqtrade/user_data/config.json') as f: d = json.load(f)
+with open('freqtrade/user_data/config.json') as f:
+    d = json.load(f)
 d['exchange']['name'] = 'bybit'
 d['exchange']['key'] = ''
 d['exchange']['secret'] = ''
-with open('freqtrade/user_data/config.json', 'w') as f: json.dump(d, f, indent=2)
-"
+with open('freqtrade/user_data/config.json', 'w') as f:
+    json.dump(d, f, indent=2)
+PYEOF
           echo "✅ Config decoded and patched for CI (bybit)"
 
       - name: Pull Freqtrade Docker Image
